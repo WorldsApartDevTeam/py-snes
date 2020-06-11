@@ -263,12 +263,57 @@ class ADC(Instruction):
         return cyc
 
     def execute(self, cpu):
+        cpu.clear_flag("Z")
+        cpu.clear_flag("C")
+        cpu.clear_flag("N")
+        cpu.clear_flag("V")
         if cpu.get_flag("M"):
-            cpu.A = (cpu.A + self.operand) & 0xFF
+            a = (cpu.A + self.operand)
+            hi = cpu.A & 0x80
+            cpu.A = a & 0xFF
+            if cpu.A == 0:
+                cpu.set_flag("Z")
+            if a > 0xFF:
+                cpu.set_flag("C")
+            if cpu.A & 0x80:
+                cpu.set_flag("N")
+            if (cpu.A & 0x80) != hi:
+                cpu.set_flag("V")
         else:
-            cpu.A = (cpu.A + self.operand) & 0xFFFF
+            a = (cpu.A + self.operand)
+            hi = cpu.A & 0x8000
+            cpu.A = a & 0xFFFF
+            if cpu.A == 0:
+                cpu.set_flag("Z")
+            if a > 0xFFFF:
+                cpu.set_flag("C")
+            if cpu.A & 0x8000:
+                cpu.set_flag("N")
+            if (cpu.A & 0x8000) != hi:
+                cpu.set_flag("V")
         return self._cycles(cpu)
 
+
+class AND(Instruction):
+    opcodes = [0x21, 0x23, 0x25, 0x27, 0x29, 0x2D, 0x2F, 0x31, 0x32, 0x33, 0x35,
+                0x37, 0x39, 0x3D, 0x3F]
+    opcode_info = {
+        0x21: {'mode': 'dpxi', 'base-cycles': 6, 'width': 1},
+        0x23: {'mode': 'sr',   'base-cycles': 4, 'width': 1},
+        0x25: {'mode': 'dp',   'base-cycles': 3, 'width': 1},
+        0x27: {'mode': 'dpil', 'base-cycles': 6, 'width': 1},
+        0x29: {'mode': 'imm',  'base-cycles': 2, 'width': 0},
+        0x2D: {'mode': 'abs',  'base-cycles': 4, 'width': 2},
+        0x2F: {'mode': 'absl', 'base-cycles': 5, 'width': 3},
+        0x31: {'mode': 'dpiy', 'base-cycles': 5, 'width': 1},
+        0x32: {'mode': 'dpi',  'base-cycles': 5, 'width': 1},
+        0x33: {'mode': 'sriy', 'base-cycles': 7, 'width': 1},
+        0x35: {'mode': 'dpx',  'base-cycles': 4, 'width': 1},
+        0x37: {'mode': 'dpiyl','base-cycles': 6, 'width': 1},
+        0x39: {'mode': 'absy', 'base-cycles': 4, 'width': 2},
+        0x3D: {'mode': 'absx', 'base-cycles': 4, 'width': 2},
+        0x3F: {'mode': 'abslx','base-cycles': 5, 'width': 3}
+    }
 
 
 def _registerInstruction(instrClass, reg):
