@@ -9,7 +9,7 @@ class Instruction:
         return "UNK"
 
     def fetch(self, cpu):
-        pass
+        return 0 # return parameter byte count (or -1 for jump instructions)
 
     def execute(self, cpu):
         return 2 # return cycle count
@@ -24,8 +24,8 @@ def read16(addr, cpu):
 
 def read24(addr, cpu):
     data = cpu.mem.read(addr); addr = nextAddr(addr)
-    data |= cpu.mem.read(addr) << 8); addr = nextAddr(addr)
-    data |= cpu.mem.read(addr) << 16)
+    data |= cpu.mem.read(addr) << 8; addr = nextAddr(addr)
+    data |= cpu.mem.read(addr) << 16
     return data
 
 def getAddr(offset, mode, cpu, is_pb):
@@ -121,7 +121,59 @@ def getAddr(offset, mode, cpu, is_pb):
         ind_data = read16(ind_addr, cpu)
         return (bankreg << 16) | ((ind_data + x) & 0xFFFF)
 
-class ADC:
+def getAddrFormat(mode):
+    if mode == 'imm':
+        return '#$%02x'
+    elif mode in ['rel', 'dp']:
+        return '$%02x'
+    elif mode in ['rell', 'abs']:
+        return '$%04x'
+    elif mode == 'absl':
+        return '$%06x'
+    elif mode == 'dpx':
+        return '$%02x,X'
+    elif mode == 'dpy':
+        return '$%02x,Y'
+    elif mode == 'absx':
+        return '$%04x,X'
+    elif mode == 'absy':
+        return '$%04x,Y'
+    elif mode == 'dpi':
+        return '($%02x)'
+    elif mode == 'dpxi':
+        return '($%02x,X)'
+    elif mode == 'dpyi':
+        return '($%02x,Y)'
+    elif mode == 'dpix':
+        return '($%02x),X'
+    elif mode == 'dpiy':
+        return '($%02x),Y'
+    elif mode == 'dpil':
+        return '[$%02x]'
+    elif mode == 'dpixl':
+        return '[$%02x],X'
+    elif mode == 'dpiyl':
+        return '[$%02x],Y'
+    elif mode == 'abslx':
+        return '$%06x,X'
+    elif mode == 'absly':
+        return '$%06x,Y'
+    elif mode == 'sr':
+        return '$%02x,S'
+    elif mode == 'srix':
+        return '($%02x,S),X'
+    elif mode == 'sriy':
+        return '($%02x,S),Y'
+    elif mode == 'absi':
+        return '($%04x)'
+    elif mode == 'absil':
+        return '[$%04x]'
+    elif mode == 'absxi':
+        return '($%04x,X)'
+    elif mode == 'absyi':
+        return '($%04x,Y)'
+
+class ADC(Instruction):
     opcodes = [
         0x61, 0x63, 0x65, 0x67, 0x69, 0x6D, 0x6F, 0x71, 0x72, 0x73, 0x75, 0x77,
         0x79, 0x7D, 0x7F
@@ -151,21 +203,32 @@ class ADC:
         super().__init__(opcode)
         self.operand = 0
         self.bc = False # boundary cross (^3)
+        self.op_literal = 0 # actual operand in code (not the value)
+
+    def __repr__(self):
+        return "ADC " + (getAddrFormat(self.opcode_info[self.opcode]['mode']) % self.op_literal)
 
     def fetch(self, cpu):
-        off = nextAddr(cpu.PC)
+        off = nextAddr(cpu.get_pc())
         if self.opcode == 0x69: # imm
             if cpu.get_flag("M"):
                 self.operand = cpu.mem.read(off)
+                self.op_literal = self.operand
+                return 1
             else:
                 self.operand = read16(off, cpu)
+                self.op_literal = self.operand
+                return 2
         else:
             if self.opcode in [0x61, 0x63, 0x65, 0x67, 0x71, 0x72, 0x73, 0x75, 0x77]:
                 param = cpu.mem.read(off) # 1-byte opcodes
+                width = 1
             elif self.opcode in [0x6D, 0x79, 0x7D]:
                 param = read16(off, cpu)  # 2-byte opcodes
+                width = 2
             else:
                 param = read24(off, cpu)  # 3-byte opcodes
+                width = 3
             mode = self.opcode_info[self.opcode]['mode']
             addr = getAddr(param, mode, cpu, False)
 
@@ -181,6 +244,8 @@ class ADC:
                 self.operand = cpu.mem.read(addr) # 1-byte
             else:
                 self.operand = read16(addr, cpu) # 2-byte
+            self.op_literal = param
+            return width
 
     def _cycles(self, cpu):
         cyc = self.opcode_info[self.opcode]['base-cycles']
@@ -203,3 +268,15 @@ class ADC:
         else:
             cpu.A = (cpu.A + self.operand) & 0xFFFF
         return self._cycles(cpu)
+
+
+
+def _registerInstruction(instrClass, reg):
+    for c in instrClass.opcodes:
+        reg[c] = instrClass
+
+
+def getAllInstructions():
+    reg = {}
+    _registerInstruction(ADC, reg)
+    return reg

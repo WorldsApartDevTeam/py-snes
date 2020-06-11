@@ -5,10 +5,10 @@ This refers to anything that can be read from or written to on the bus. This
 could be RAM, ROM, or any variety of peripherals.
 """
 class Memory:
-    def read(addr):
+    def read(self, addr):
         pass
 
-    def write(addr, value):
+    def write(self, addr, value):
         pass
 
 
@@ -16,18 +16,18 @@ class Memory:
 RAM memory
 """
 class RAM(Memory):
-    def __init__(size):
+    def __init__(self, size):
         self.data = bytearray(size)
         self.size = size
 
-    def read(addr):
+    def read(self, addr):
         if addr > self.size:
             print("Error: more RAM mapped than available: attempt to access %06x" % addr)
             return 0
         return self.data[addr]
 
 
-    def write(addr, value):
+    def write(self, addr, value):
         if addr > self.size:
             print("Error: more RAM mapped than available: attempt to access %06x" % addr)
         else:
@@ -37,7 +37,7 @@ class RAM(Memory):
 ROM memory
 """
 class ROM(RAM):
-    def write(addr, value):
+    def write(self, addr, value):
         print("[invalid write %02x to ROM at %06x]" % (addr, value))
 
 """
@@ -52,14 +52,14 @@ class AddressSpace:
         n = len(self.devices)
         self.devices.append((start, end, o_start, mem))
 
-    def read(addr):
+    def read(self, addr):
         for dev in self.devices:
             if addr >= dev[0] and addr < dev[1]:
                 o_addr = addr - dev[0] + dev[2]
                 return dev[3].read(o_addr)
         return 0
 
-    def write(addr, value):
+    def write(self, addr, value):
         for dev in self.devices:
             if addr >= dev[0] and addr < dev[1]:
                 o_addr = addr - dev[0] + dev[2]
