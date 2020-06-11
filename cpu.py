@@ -34,6 +34,9 @@ class CPU:
     def clear_flag(self, flag):
         self.P &= ~cpu_flags[flag]
 
+    def get_flag(self, flag):
+        return self.P & cpu_flags[flag]
+
     def cycle(self):
         """
         Parse an instruction. May take several cycles. Exits when the PC changes
