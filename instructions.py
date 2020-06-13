@@ -995,14 +995,15 @@ class JSR(Instruction):
             self.op_literal = read24(off, cpu)
 
         self.addr = getAddr(self.op_literal, self.inf['mode'], cpu, True)
-        return self.inf['width']
+        return -1
 
     def execute(self, cpu):
         rt_addr = nextAddr(cpu.get_pc(), self.inf['width'])
+        # print("jsr return addr %06x" % rt_addr)
         if self.inf['width'] == 3:
             cpu.stack_push(cpu.PB)
-        cpu.stack_push(rt_addr & 0xFF)
         cpu.stack_push((rt_addr >> 8) & 0xFF)
+        cpu.stack_push(rt_addr & 0xFF)
 
         if self.inf['width'] == 3:
             cpu.PB = (self.addr >> 16) & 0xFF
@@ -1047,6 +1048,7 @@ class LDA(Instruction):
         self.op_literal = 0
         self.operand = 0
         self.inf = self.opcode_info[self.opcode]
+        self.bc = False
         self.reg = self.inf['name'][2]
 
     def __repr__(self):
@@ -1055,10 +1057,11 @@ class LDA(Instruction):
     def fetch(self, cpu):
         off = nextAddr(cpu.get_pc())
         if self.reg == "A":
-            tb = cpu.get_flag("M")
+            tb = not cpu.get_flag("M")
         else:
-            tb = cpu.get_flag("X")
-        self.operand, width, param = getParameter(off, self.inf['mode'], cpu, tb, False)
+            tb = not cpu.get_flag("X")
+        mode = self.inf['mode']
+        self.operand, width, param = getParameter(off, mode, cpu, tb, False)
 
         # check boundary cross for timing
         if mode == 'dpiy': # dpiy
@@ -1164,9 +1167,43 @@ class LSR(Instruction):
 
 
 class MVN(Instruction):
-    ##################################################################################
-    # Unimplemented!
-    pass
+    opcodes = [0x54, 0x44]
+    # 0x54: MVN
+    # 0x44: MVP
+    def __init__(self, opcode):
+        super().__init__(opcode)
+        self.src = 0
+        self.dest = 0
+
+    def __repr__(self):
+        if self.opcode == 0x54:
+            return "MVN $%02x,$%02x" % (self.src, self.dst)
+        else:
+            return "MVP $%02x,$%02x" % (self.src, self.dst)
+
+    def fetch(self, cpu):
+        off = nextAddr(cpu.get_pc)
+        self.src = cpu.mem.read(off)
+        self.dst = cpu.mem.read(nextAddr(off))
+        if cpu.get_full_a() == 0xFFFF:
+            return 2 # advance
+        else:
+            return -1 # don't advance until we are done
+
+    def execute(self, cpu):
+        src_addr = (self.src << 16) | (cpu.X)
+        dest_addr = (self.dst << 16) | (cpu.Y)
+        val = cpu.mem.read(src_addr)
+        cpu.mem.write(dest_addr, val)
+        cpu.DB = self.dst # overwrite DBR
+        cpu.set_full_a((cpu.get_full_a() - 1) & 0xFFFF)
+        if self.opcode == 0x54:
+            cpu.X += 1
+            cpu.Y += 1
+        else:
+            cpu.X -= 1
+            cpu.Y -= 1
+        return 7
 
 
 class NOP(Instruction):
@@ -1360,7 +1397,7 @@ class REP(Instruction):
         self.op = 0
 
     def __repr__(self):
-        return "REP #%02x" % self.op
+        return "REP #$%02x" % self.op
 
     def fetch(self, cpu):
         self.op = cpu.mem.read(nextAddr(cpu.PC))
@@ -1463,7 +1500,7 @@ class ReturnInstruction(Instruction):
         return self.inf['name']
 
     def fetch(self, cpu):
-        return 0
+        return -1
 
     def execute(self, cpu):
         if self.opcode == 0x40:
@@ -1549,7 +1586,7 @@ class SEP(Instruction):
         self.op = 0
 
     def __repr__(self):
-        return "SEP #%02x" % self.op
+        return "SEP #$%02x" % self.op
 
     def fetch(self, cpu):
         self.op = cpu.mem.read(nextAddr(cpu.get_pc()))
@@ -1762,7 +1799,7 @@ class XBA(Instruction):
     def __init__(self, o):
         super().__init__(o)
 
-    def __repr_(self):
+    def __repr__(self):
         return "XBA"
 
     def fetch(self, cpu):
@@ -1781,7 +1818,7 @@ class XCE(Instruction):
     def __init__(self, o):
         super().__init__(o)
 
-    def __repr_(self):
+    def __repr__(self):
         return "XCE"
 
     def fetch(self, cpu):

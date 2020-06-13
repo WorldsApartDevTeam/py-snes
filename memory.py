@@ -6,7 +6,7 @@ could be RAM, ROM, or any variety of peripherals.
 """
 class Memory:
     def read(self, addr):
-        pass
+        return 0
 
     def write(self, addr, value):
         pass

@@ -88,7 +88,7 @@ class CPU:
             self.reset = False
         opcode = self.mem.read(self.get_pc())
         if not opcode in self.instructions:
-            print("ILLEGAL OPCODE %02x -- halting" % opcode)
+            print("ILLEGAL OPCODE %02x @ $%06x -- halting" % (opcode, self.get_pc()))
             self.halt = True
             return
         # print("%02x -- %s" % (opcode, self.instructions[opcode]))
@@ -96,8 +96,8 @@ class CPU:
         old_m = self.get_flag("M")
 
         step = instr.fetch(self)
-        cycles = instr.execute(self)
         print("[$%02x:%04x]: %s" % (self.PB, self.PC, instr))
+        cycles = instr.execute(self)
         if not self.get_flag("M"):
             # Back up high byte in B
             if old_m:
