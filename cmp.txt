@@ -1,0 +1,4 @@
+TRB dp 		Test and Reset Memory Bits Against Accumulator 	14 	Direct Page 	------Z- 	2 	5[^2][^4]
+TRB addr 		Test and Reset Memory Bits Against Accumulator 	1C 	Absolute 	------Z- 	3 	6[^4]
+TSB dp 		Test and Set Memory Bits Against Accumulator 	04 	Direct Page 	------Z- 	2 	5[^2][^4]
+TSB addr 		Test and Set Memory Bits Against Accumulator 	0C 	Absolute 	------Z- 	3 	6[^4]

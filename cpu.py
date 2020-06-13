@@ -6,7 +6,7 @@ cpu_flags = {
     "V": 0x40, # overflow
     "M": 0x20, # accumulator size (set => 8bits)
     "X": 0x10, # index size (set => 8bits)
-    "D": 0x08, # decimal flag (does nothing on SNES)
+    "D": 0x08, # decimal flag (does nothing on SNES, I think)
     "I": 0x04, # IRQ disabled when set
     "Z": 0x02, # zero
     "C": 0x01  # carry (can be copied to the emulation flag)
@@ -20,6 +20,7 @@ class CPU:
         self.halt = False
         self.cycle_count = 0
         self.A = 0  # Accumulator
+        self.B = 0  # backup copy of the high byte in 8-bit mode
         self.X = 0  # X index
         self.Y = 0  # Y index
         self.S = 0  # Stack pointer
@@ -42,6 +43,24 @@ class CPU:
 
     def get_pc(self):
         return (self.PB << 16) | self.PC
+
+    def stack_push(self, b):
+        self.mem.write(self.S, b)
+        self.S = (self.S - 1) & 0xFFFF
+
+    def stack_pop(self):
+        self.S = (self.S + 1) & 0xFFFF
+        return self.mem.read(self.S)
+
+    def get_full_a(self):
+        return (self.B << 8) | self.A
+
+    def set_full_a(self, a):
+        if self.get_flag("M"):
+            self.A = a & 0xFF
+        else:
+            self.A = a & 0xFFFF
+        self.B = (a>>8) & 0xFF
 
     def cycle(self):
         """
@@ -74,9 +93,22 @@ class CPU:
             return
         # print("%02x -- %s" % (opcode, self.instructions[opcode]))
         instr = self.instructions[opcode](opcode)
+        old_m = self.get_flag("M")
+
         step = instr.fetch(self)
         cycles = instr.execute(self)
         print("[$%02x:%04x]: %s" % (self.PB, self.PC, instr))
+        if not self.get_flag("M"):
+            # Back up high byte in B
+            if old_m:
+                self.A |= self.B << 8
+            else:
+                self.B = (self.A >> 8) & 0xFF
+        if self.get_flag("X"):
+            # Force X and Y to 0
+            self.X &= 0xFF
+            self.Y &= 0xFF
+
         self.PC = instructions.nextAddr(self.PC, step+1)
         self.cycle_count += cycles
 
